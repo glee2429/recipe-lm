@@ -5,10 +5,11 @@ from typing import Optional
 class HuggingFaceConfig(ConfigurableResource):
     """Configuration for HuggingFace dataset and model."""
 
-    dataset_name: str = "tatsu-lab/alpaca"
+    dataset_name: str = "corbt/all-recipes"
     dataset_subset: Optional[str] = None
     model_name: str = "google/gemma-2b"
-    text_column: str = "text"
+    text_column: str = "input"
+    max_samples: Optional[int] = 5000
     max_seq_length: int = 512
     val_split_ratio: float = 0.1
     seed: int = 42

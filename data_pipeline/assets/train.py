@@ -30,20 +30,37 @@ def trained_model(
         f"Loaded {len(train_ds)} train / {len(val_ds)} val examples"
     )
 
-    # Quantization config for QLoRA (4-bit)
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,
-    )
+    use_cuda = torch.cuda.is_available()
+    use_mps = torch.backends.mps.is_available()
+    dtype = torch.bfloat16 if use_cuda else torch.float32
+
+    load_kwargs = {
+        "torch_dtype": dtype,
+        "device_map": "auto",
+    }
+
+    if use_cuda:
+        # QLoRA 4-bit quantization (CUDA only)
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+        load_kwargs["quantization_config"] = bnb_config
+        context.log.info("Using QLoRA (4-bit quantization on CUDA)")
+    else:
+        if use_mps:
+            load_kwargs["device_map"] = {"": "mps"}
+            context.log.info("Using LoRA on MPS (Apple Silicon)")
+        else:
+            load_kwargs["device_map"] = {"": "cpu"}
+            context.log.info("Using LoRA on CPU (no quantization)")
 
     context.log.info(f"Loading model: {hf_config.model_name}")
     model = AutoModelForCausalLM.from_pretrained(
         hf_config.model_name,
-        quantization_config=bnb_config,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
+        **load_kwargs,
     )
     model.config.use_cache = False
 
@@ -75,7 +92,8 @@ def trained_model(
         per_device_train_batch_size=hf_config.per_device_train_batch_size,
         per_device_eval_batch_size=hf_config.per_device_train_batch_size,
         learning_rate=hf_config.learning_rate,
-        bf16=True,
+        bf16=use_cuda,
+        fp16=False,
         logging_steps=10,
         eval_strategy="epoch",
         save_strategy="epoch",

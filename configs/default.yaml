@@ -5,10 +5,11 @@
 resources:
   hf_config:
     config:
-      dataset_name: "tatsu-lab/alpaca"
+      dataset_name: "corbt/all-recipes"
       # dataset_subset: null
       model_name: "google/gemma-2b"
-      text_column: "text"
+      text_column: "input"
+      max_samples: 5000
       max_seq_length: 512
       val_split_ratio: 0.1
       seed: 42

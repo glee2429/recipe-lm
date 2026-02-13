@@ -22,4 +22,9 @@ def raw_dataset(
 
     context.log.info(f"Downloaded {len(ds)} examples")
     context.log.info(f"Columns: {ds.column_names}")
+
+    if hf_config.max_samples and len(ds) > hf_config.max_samples:
+        ds = ds.shuffle(seed=hf_config.seed).select(range(hf_config.max_samples))
+        context.log.info(f"Sampled down to {len(ds)} examples")
+
     return ds
