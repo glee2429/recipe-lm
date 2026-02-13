@@ -1,0 +1,15 @@
+# Default configuration for the data processing pipeline.
+# Override these values when launching a run from the Dagster UI,
+# or by setting environment variables.
+
+resources:
+  hf_config:
+    config:
+      dataset_name: "tatsu-lab/alpaca"
+      # dataset_subset: null
+      model_name: "google/gemma-2b"
+      text_column: "text"
+      max_seq_length: 512
+      val_split_ratio: 0.1
+      seed: 42
+      output_dir: "./processed_data"

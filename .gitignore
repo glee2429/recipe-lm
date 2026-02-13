@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.egg-info/
+*.pyc
+dist/
+build/
+
+# Dagster
+.tmp_dagster_home_*/
+dagster_storage/
+processed_data/
+
+# IDE
+.vscode/
+.idea/
