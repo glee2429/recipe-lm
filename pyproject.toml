@@ -13,6 +13,9 @@ dependencies = [
     "datasets",
     "transformers",
     "torch",
+    "peft",
+    "bitsandbytes",
+    "accelerate",
 ]
 
 [project.optional-dependencies]

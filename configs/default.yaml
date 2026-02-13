@@ -13,3 +13,11 @@ resources:
       val_split_ratio: 0.1
       seed: 42
       output_dir: "./processed_data"
+
+      # Training (LoRA)
+      num_train_epochs: 3
+      per_device_train_batch_size: 4
+      learning_rate: 2e-4
+      lora_r: 8
+      lora_alpha: 16
+      lora_dropout: 0.05

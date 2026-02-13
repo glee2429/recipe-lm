@@ -3,6 +3,7 @@ from datasets import Dataset
 
 from data_pipeline.assets.clean import cleaned_dataset
 from data_pipeline.assets.split import train_val_splits
+from data_pipeline.assets.train import trained_model
 from data_pipeline.resources import HuggingFaceConfig
 
 
@@ -57,3 +58,12 @@ def test_train_val_splits_creates_files(tmp_path):
     assert (tmp_path / "val").exists()
     assert result.metadata["train_examples"].value == 80
     assert result.metadata["val_examples"].value == 20
+
+
+def test_trained_model_asset_has_correct_deps():
+    asset_def = trained_model
+    dep_keys = {str(k) for k in asset_def.asset_deps.values() for k in k}
+    assert any("train_val_splits" in k for k in dep_keys)
+
+    for spec in asset_def.specs:
+        assert spec.group_name == "training"
