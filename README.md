@@ -93,45 +93,58 @@ After a full run:
 - `./processed_data/val/` — tokenized validation split (Arrow format)
 - `./processed_data/lora_adapter/` — trained LoRA adapter weights
 
-## Testing the Trained Model
+## Inference
 
-### Load from local adapter
+A standalone inference script with built-in post-processing is provided. It removes common generation artifacts (trailing comments, empty bullets, malformed lines, truncated text).
+
+### Quick start
+
+```bash
+python inference.py --prompt "Recipe for chocolate chip cookies:"
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--prompt` | `"Recipe for chocolate chip cookies:"` | Prompt for recipe generation |
+| `--adapter` | `./processed_data/lora_adapter` | Path to LoRA adapter (local or HuggingFace Hub ID) |
+| `--model` | `google/gemma-2b` | Base model name |
+| `--max-tokens` | `256` | Maximum new tokens to generate |
+| `--temperature` | `0.7` | Sampling temperature |
+| `--raw` | off | Show raw output without post-processing |
+| `--save` | none | Save output to file |
+
+### Examples
+
+```bash
+# Generate with post-processing (default)
+python inference.py --prompt "Recipe for pasta carbonara:"
+
+# Compare raw vs cleaned output
+python inference.py --prompt "Recipe for tomato soup:" --raw
+
+# Save to file
+python inference.py --prompt "Recipe for banana bread:" --save output.txt
+
+# Use adapter from HuggingFace Hub
+python inference.py --adapter ClaireLee2429/gemma-2b-recipes-lora --prompt "Recipe for chicken stir fry:"
+```
+
+### Using the model directly in Python
 
 ```python
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
-# Load base model + LoRA adapter
+# From local adapter
 base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
 model = PeftModel.from_pretrained(base_model, "./processed_data/lora_adapter")
 tokenizer = AutoTokenizer.from_pretrained("./processed_data/lora_adapter")
-model.eval()
 
-# Generate a recipe
-prompt = "Recipe for chocolate chip cookies:\n"
-inputs = tokenizer(prompt, return_tensors="pt")
-with torch.no_grad():
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=256,
-        temperature=0.7,
-        top_p=0.9,
-        do_sample=True,
-        repetition_penalty=1.2,
-    )
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-```
-
-### Load from HuggingFace Hub
-
-```python
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
-model = PeftModel.from_pretrained(base_model, "ClaireLee2429/gemma-2b-recipes-lora")
-tokenizer = AutoTokenizer.from_pretrained("ClaireLee2429/gemma-2b-recipes-lora")
+# Or from HuggingFace Hub
+# model = PeftModel.from_pretrained(base_model, "ClaireLee2429/gemma-2b-recipes-lora")
+# tokenizer = AutoTokenizer.from_pretrained("ClaireLee2429/gemma-2b-recipes-lora")
 ```
 
 ### Sample output
