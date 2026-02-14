@@ -1,6 +1,6 @@
-# Data Pipeline: HuggingFace LLM Fine-Tuning
+# recipe-lm
 
-A [Dagster](https://dagster.io/) pipeline that downloads datasets from HuggingFace, processes them, and fine-tunes a language model using LoRA/QLoRA. Currently configured to fine-tune [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) to generate recipes from prompts.
+A [Dagster](https://dagster.io/) pipeline that fine-tunes [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) to generate recipes from prompts, using LoRA for parameter-efficient fine-tuning.
 
 The trained adapter is published at [ClaireLee2429/gemma-2b-recipes-lora](https://huggingface.co/ClaireLee2429/gemma-2b-recipes-lora).
 
