@@ -134,13 +134,73 @@ model = PeftModel.from_pretrained(base_model, "ClaireLee2429/gemma-2b-recipes-lo
 tokenizer = AutoTokenizer.from_pretrained("ClaireLee2429/gemma-2b-recipes-lora")
 ```
 
-### Example prompts to try
+### Sample output
+
+> **Prompt:** `Recipe for chocolate chip cookies:`
+
+```
+Recipe for chocolate chip cookies:
+Ingredients:
+- 1/2 cup butter
+- 1/4 cup sugar
+- 1/4 cup packed brown sugar
+- 3/4 cup flour
+- 1/2 teaspoon baking soda
+- 1/2 teaspoon salt
+- 1 egg
+- 1 teaspoon vanilla
+- 1/2 cup chocolate chips
+
+Directions:
+- In a medium bowl, cream together the butter and sugars.
+- Add in the egg and vanilla, mixing until combined.
+- In another bowl, whisk together the flour, baking soda and salt.
+- Add to the creamed mixture alternately with the chocolate chips, ending with the dry ingredients.
+- Stir in gently using a rubber spatula.
+- Drop by rounded teaspoonfuls onto ungreased cookie sheets.
+- Bake at 350 degrees F for 9 minutes.
+- Cool on wire racks before serving.
+```
+
+> **Prompt:** `Recipe for pasta carbonara:`
 
 ```
 Recipe for pasta carbonara:
-Recipe for banana bread:
-Recipe for chicken stir fry:
+Ingredients:
+- 100 g spaghetti
+- 100 g smoked bacon or pancetta
+- 250 g mushrooms
+- 2 eggs
+- 1 tablespoon olive oil
+- 1 tablespoon white wine
+- 1 teaspoon freshly grated parmesan cheese
+
+Directions:
+- Cook the pasta according to package instructions.
+- Meanwhile, brown the bacon in a frying pan with some olive oil.
+- Add the mushrooms and cook them until they are tender (about 10 minutes).
+- Add the cooked pasta to the mushroom mixture along with the eggs and stir well.
+- Stir in the wine and then sprinkle over the grated parmesan cheese.
+- Season with salt and pepper and serve immediately.
+```
+
+> **Prompt:** `Recipe for tomato soup:`
+
+```
 Recipe for tomato soup:
+Ingredients:
+- 1 (28 ounce) can crushed tomatoes
+- 1 (4 ounce) can tomato paste
+- 1 tablespoon dried basil
+- 1/2 tablespoon salt
+- 1/2 tablespoon sugar
+- 1/2 teaspoon garlic powder
+- 1/4 teaspoon red pepper flakes
+
+Directions:
+- Combine all ingredients in a large pot and bring to a boil.
+- Reduce heat, cover and simmer until thickened, about 1 hour.
+- Serve over grilled cheese sandwiches or with tortilla chips.
 ```
 
 ### Comparing base vs. fine-tuned model
