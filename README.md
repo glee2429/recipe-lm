@@ -1,6 +1,8 @@
 # Data Pipeline: HuggingFace LLM Fine-Tuning
 
-A [Dagster](https://dagster.io/) pipeline that downloads datasets from HuggingFace, processes them, and fine-tunes a language model using LoRA/QLoRA.
+A [Dagster](https://dagster.io/) pipeline that downloads datasets from HuggingFace, processes them, and fine-tunes a language model using LoRA/QLoRA. Currently configured to fine-tune [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) to generate recipes from prompts.
+
+The trained adapter is published at [ClaireLee2429/gemma-2b-recipes-lora](https://huggingface.co/ClaireLee2429/gemma-2b-recipes-lora).
 
 ## Pipeline
 
@@ -10,11 +12,11 @@ raw_dataset → cleaned_dataset → tokenized_dataset → train_val_splits → t
 
 | Asset | Description |
 |---|---|
-| **raw_dataset** | Downloads a dataset from HuggingFace Hub |
+| **raw_dataset** | Downloads a dataset from HuggingFace Hub, optionally samples down to `max_samples` |
 | **cleaned_dataset** | Strips whitespace, removes empty rows, deduplicates |
 | **tokenized_dataset** | Tokenizes text using the model's `AutoTokenizer` with padding/truncation |
 | **train_val_splits** | Splits into train/validation sets, saves as Arrow files |
-| **trained_model** | Fine-tunes the model with QLoRA (4-bit) using HF `Trainer`, evaluates on val set, saves the LoRA adapter |
+| **trained_model** | Fine-tunes the model with LoRA using HF `Trainer`, evaluates on val set, saves the LoRA adapter |
 
 ## Setup
 
@@ -43,8 +45,10 @@ materialize(
     [raw_dataset, cleaned_dataset, tokenized_dataset, train_val_splits, trained_model],
     resources={
         "hf_config": HuggingFaceConfig(
-            dataset_name="tatsu-lab/alpaca",
+            dataset_name="corbt/all-recipes",
             model_name="google/gemma-2b",
+            text_column="input",
+            max_samples=5000,
         ),
         "io_manager": hf_dataset_io_manager,
     },
@@ -57,10 +61,11 @@ All parameters are configurable via the `hf_config` resource (see `configs/defau
 
 | Parameter | Default | Description |
 |---|---|---|
-| `dataset_name` | `tatsu-lab/alpaca` | HuggingFace dataset identifier |
+| `dataset_name` | `corbt/all-recipes` | HuggingFace dataset identifier |
 | `dataset_subset` | `None` | Dataset subset/config name |
 | `model_name` | `google/gemma-2b` | HuggingFace model identifier |
-| `text_column` | `text` | Column to tokenize |
+| `text_column` | `input` | Column to tokenize |
+| `max_samples` | `5000` | Max examples to sample (set to `None` for full dataset) |
 | `max_seq_length` | `512` | Max token length |
 | `val_split_ratio` | `0.1` | Fraction of data for validation |
 | `num_train_epochs` | `3` | Training epochs |
@@ -70,6 +75,16 @@ All parameters are configurable via the `hf_config` resource (see `configs/defau
 | `lora_alpha` | `16` | LoRA alpha |
 | `lora_dropout` | `0.05` | LoRA dropout |
 
+## Device Support
+
+The training step automatically detects the available hardware:
+
+| Device | Behavior |
+|---|---|
+| **CUDA** | QLoRA with 4-bit quantization (bitsandbytes), bf16 training |
+| **MPS (Apple Silicon)** | LoRA without quantization, fp32 training |
+| **CPU** | LoRA without quantization, fp32 training |
+
 ## Outputs
 
 After a full run:
@@ -78,12 +93,99 @@ After a full run:
 - `./processed_data/val/` — tokenized validation split (Arrow format)
 - `./processed_data/lora_adapter/` — trained LoRA adapter weights
 
-Load the adapter for inference:
+## Testing the Trained Model
+
+### Load from local adapter
 
 ```python
 from peft import PeftModel
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
+# Load base model + LoRA adapter
 base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
 model = PeftModel.from_pretrained(base_model, "./processed_data/lora_adapter")
+tokenizer = AutoTokenizer.from_pretrained("./processed_data/lora_adapter")
+model.eval()
+
+# Generate a recipe
+prompt = "Recipe for chocolate chip cookies:\n"
+inputs = tokenizer(prompt, return_tensors="pt")
+with torch.no_grad():
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=256,
+        temperature=0.7,
+        top_p=0.9,
+        do_sample=True,
+        repetition_penalty=1.2,
+    )
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+### Load from HuggingFace Hub
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
+model = PeftModel.from_pretrained(base_model, "ClaireLee2429/gemma-2b-recipes-lora")
+tokenizer = AutoTokenizer.from_pretrained("ClaireLee2429/gemma-2b-recipes-lora")
+```
+
+### Example prompts to try
+
+```
+Recipe for pasta carbonara:
+Recipe for banana bread:
+Recipe for chicken stir fry:
+Recipe for tomato soup:
+```
+
+### Comparing base vs. fine-tuned model
+
+To see the effect of fine-tuning, compare outputs from the base Gemma-2B model (without the adapter) against the fine-tuned version:
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+prompt = "Recipe for banana bread:\n"
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
+inputs = tokenizer(prompt, return_tensors="pt")
+
+# Base model (no fine-tuning)
+base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
+base_model.eval()
+with torch.no_grad():
+    base_out = base_model.generate(**inputs, max_new_tokens=200, do_sample=True, temperature=0.7)
+print("=== BASE MODEL ===")
+print(tokenizer.decode(base_out[0], skip_special_tokens=True))
+
+# Fine-tuned model
+ft_model = PeftModel.from_pretrained(base_model, "./processed_data/lora_adapter")
+ft_model.eval()
+with torch.no_grad():
+    ft_out = ft_model.generate(**inputs, max_new_tokens=200, do_sample=True, temperature=0.7)
+print("\n=== FINE-TUNED MODEL ===")
+print(tokenizer.decode(ft_out[0], skip_special_tokens=True))
+```
+
+## Training Results
+
+Trained on 4,500 recipes for 1 epoch on Apple Silicon (MPS):
+
+| Metric | Value |
+|---|---|
+| Train loss | 1.3928 |
+| Val loss | 1.4030 |
+| Val perplexity | 4.07 |
+| Training time | ~1 hr 21 min |
+
+## Tests
+
+```bash
+pytest tests/
 ```
