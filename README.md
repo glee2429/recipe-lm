@@ -246,6 +246,19 @@ print("\n=== FINE-TUNED MODEL ===")
 print(tokenizer.decode(ft_out[0], skip_special_tokens=True))
 ```
 
+## Training on Google Colab (with Unsloth)
+
+For faster training on a free GPU, use the provided Colab notebook which uses [Unsloth](https://unsloth.ai/) for ~2x faster training with ~70% less VRAM:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ClaireLee2429/recipe-lm/blob/main/notebooks/train_unsloth.ipynb)
+
+1. Open the notebook in Google Colab
+2. Set runtime to **T4 GPU** (Runtime > Change runtime type)
+3. Run all cells — training takes ~15-30 min on a T4
+4. Download the trained adapter or push it to HuggingFace Hub
+
+The notebook is self-contained and uses the same hyperparameters as the local Dagster pipeline. The resulting LoRA adapter is compatible with the `inference.py` script.
+
 ## Training Results
 
 Trained on 4,500 recipes for 1 epoch on Apple Silicon (MPS):

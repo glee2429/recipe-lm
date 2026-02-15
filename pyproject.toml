@@ -23,6 +23,10 @@ dev = [
     "pytest",
     "dagster[test]",
 ]
+colab = [
+    "unsloth",
+    "trl",
+]
 
 [tool.dagster]
 module_name = "data_pipeline.definitions"
