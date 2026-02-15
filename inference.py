@@ -6,6 +6,7 @@ Usage:
     python inference.py --prompt "Recipe for pasta carbonara:" --save output.txt
     python inference.py --prompt "Recipe for banana bread:" --raw
     python inference.py --adapter ClaireLee2429/gemma-2b-recipes-lora --prompt "Recipe for soup:"
+    python inference.py --no-adapter --prompt "Recipe for Thai green curry:"
 """
 
 import argparse
@@ -78,8 +79,8 @@ def clean_recipe(text: str) -> str:
     return "\n".join(deduped)
 
 
-def load_model(model_name: str, adapter_path: str):
-    """Load the base model with LoRA adapter."""
+def load_model(model_name: str, adapter_path: str, no_adapter: bool = False):
+    """Load the base model, optionally with a LoRA adapter."""
     use_cuda = torch.cuda.is_available()
     use_mps = torch.backends.mps.is_available()
 
@@ -98,11 +99,16 @@ def load_model(model_name: str, adapter_path: str):
         model_name, torch_dtype=dtype, device_map=device_map
     )
 
-    print(f"Loading LoRA adapter from {adapter_path}...")
-    model = PeftModel.from_pretrained(base_model, adapter_path)
-    model.eval()
+    if no_adapter:
+        print("Running base model without adapter")
+        model = base_model
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    else:
+        print(f"Loading LoRA adapter from {adapter_path}...")
+        model = PeftModel.from_pretrained(base_model, adapter_path)
+        tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
-    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
+    model.eval()
 
     device = "cuda" if use_cuda else ("mps" if use_mps else "cpu")
     return model, tokenizer, device
@@ -170,6 +176,11 @@ def main():
         help="Sampling temperature",
     )
     parser.add_argument(
+        "--no-adapter",
+        action="store_true",
+        help="Run the base model without a LoRA adapter",
+    )
+    parser.add_argument(
         "--raw",
         action="store_true",
         help="Show raw output without post-processing",
@@ -186,7 +197,7 @@ def main():
     # Ensure prompt ends with newline
     prompt = args.prompt if args.prompt.endswith("\n") else args.prompt + "\n"
 
-    model, tokenizer, device = load_model(args.model, args.adapter)
+    model, tokenizer, device = load_model(args.model, args.adapter, args.no_adapter)
 
     print(f"\nPrompt: {prompt.strip()}")
     print("-" * 40)
