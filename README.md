@@ -216,34 +216,88 @@ Directions:
 - Serve over grilled cheese sandwiches or with tortilla chips.
 ```
 
-### Comparing base vs. fine-tuned model
+### Why fine-tune?
 
-To see the effect of fine-tuning, compare outputs from the base Gemma-2B model (without the adapter) against the fine-tuned version:
+Gemma-2B is a general-purpose model — it knows about recipes but doesn't reliably produce clean, structured output. Fine-tuning on 5,000 recipes teaches it a consistent format and keeps it focused. Here's a side-by-side comparison:
 
-```python
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+#### Base Gemma-2B (`--no-adapter`)
 
-prompt = "Recipe for banana bread:\n"
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
-inputs = tokenizer(prompt, return_tensors="pt")
+> **Prompt:** `Recipe for beef tacos:`
 
-# Base model (no fine-tuning)
-base_model = AutoModelForCausalLM.from_pretrained("google/gemma-2b")
-base_model.eval()
-with torch.no_grad():
-    base_out = base_model.generate(**inputs, max_new_tokens=200, do_sample=True, temperature=0.7)
-print("=== BASE MODEL ===")
-print(tokenizer.decode(base_out[0], skip_special_tokens=True))
+```
+Recipe for beef tacos:
+1 lb ground beef
+2 large onion, chopped
+1 large tomato, chopped
+3-4 fresh jalapeños, sliced
+Salt and pepper to taste
+1 tbsp olive oil
+1 can refried beans
+1 can tomato sauce
+2-3 cups shredded cheese (I used mozzarella)
+1 cup sour cream
+1 bag of your favorite taco shells
 
-# Fine-tuned model
-ft_model = PeftModel.from_pretrained(base_model, "./processed_data/lora_adapter")
-ft_model.eval()
-with torch.no_grad():
-    ft_out = ft_model.generate(**inputs, max_new_tokens=200, do_sample=True, temperature=0.7)
-print("\n=== FINE-TUNED MODEL ===")
-print(tokenizer.decode(ft_out[0], skip_special_tokens=True))
+Heat the olive oil in a large skillet over medium heat. Brown the ground beef,
+then drain off excess grease. Add onions, jalapeño, and tomatoes, along with
+salt and pepper. Cook until vegetables are softened. Stir in the can of refried
+beans and tomato sauce, then remove from heat.
+
+To assemble tacos, place a layer of beef mixture on the bottom of each taco
+shell. Top with some shredded cheese, followed by sour cream. Serve with your
+favorite taco toppings, such as lettuce, tomatoes, and salsa!
+
+Enjoy!
+
+<h2>What is the most popular Mexican dish?</h2>
+
+The top five Mexican dishes include tacos, burritos, enchiladas, tamales, and nachos.
+```
+
+#### Fine-tuned model
+
+> **Prompt:** `Recipe for beef tacos:`
+
+```
+Recipe for beef tacos:
+Ingredients:
+- 2 lb. ground beef
+- 1 can (8 oz.) diced tomatoes
+- 1/4 c. chopped onion
+- 1/2 tsp. salt
+- 1/2 tsp. pepper
+- 1/2 tsp. garlic powder
+- 1/2 c. water
+- 1 can (6 oz.) refried beans
+- 1 c. shredded cheese
+- 2 flour tortillas
+
+Directions:
+- Brown ground beef in a skillet; drain.
+- Combine the other ingredients and mix well.
+- Pour into a 9 x 5 x 3-inch baking dish.
+- Cover with the refried beans and cheese.
+- Bake at 350° for 30 minutes.
+- Serve with sour cream and lettuce.
+```
+
+#### Key differences
+
+| | Base Gemma-2B | Fine-tuned |
+|---|---|---|
+| **Format** | No section headers, mixed styles | Consistent Ingredients/Directions structure |
+| **Bullet style** | None or `•` bullets | Clean `- ` bullets throughout |
+| **Focus** | Rambles into commentary, HTML tags, FAQ sections | Stays on-task, recipe only |
+| **Measurements** | Inconsistent (some missing) | Precise and uniform |
+
+You can compare them yourself with the `--no-adapter` flag:
+
+```bash
+# Base model
+python inference.py --no-adapter --prompt "Recipe for banana bread:"
+
+# Fine-tuned
+python inference.py --adapter ClaireLee2429/gemma-2b-recipes-lora --prompt "Recipe for banana bread:"
 ```
 
 ## Training on Google Colab (with Unsloth)
