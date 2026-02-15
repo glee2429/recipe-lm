@@ -300,6 +300,60 @@ python inference.py --no-adapter --prompt "Recipe for banana bread:"
 python inference.py --adapter ClaireLee2429/gemma-2b-recipes-lora --prompt "Recipe for banana bread:"
 ```
 
+## API Server
+
+A FastAPI server with streaming token output via Server-Sent Events (SSE).
+
+### Start the server
+
+```bash
+pip install -e ".[serve]"
+python server.py --adapter ClaireLee2429/gemma-2b-recipes-lora
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Server status, model name, and device |
+| `POST` | `/generate` | Stream recipe tokens via SSE |
+
+### Generate request
+
+```bash
+curl -N -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Recipe for pasta carbonara:"}'
+```
+
+**Request body:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `prompt` | string | (required) | Recipe prompt |
+| `max_tokens` | int | 256 | Max tokens to generate (1-1024) |
+| `temperature` | float | 0.7 | Sampling temperature (0.1-2.0) |
+
+**Response:** SSE stream of JSON events:
+
+```
+data: {"token": "Ingredients"}
+data: {"token": ":\n"}
+data: {"token": "- 1"}
+...
+data: {"done": true, "full_text": "Recipe for pasta carbonara:\nIngredients:\n..."}
+```
+
+### Server options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--adapter` | `./processed_data/lora_adapter` | LoRA adapter path or HuggingFace Hub ID |
+| `--model` | `google/gemma-2b` | Base model name |
+| `--no-adapter` | off | Run base model without adapter |
+| `--host` | `0.0.0.0` | Host to bind to |
+| `--port` | `8000` | Port to bind to |
+
 ## Training on Google Colab (with Unsloth)
 
 For faster training on a free GPU, use the provided Colab notebook which uses [Unsloth](https://unsloth.ai/) for ~2x faster training with ~70% less VRAM:

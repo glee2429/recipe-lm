@@ -27,6 +27,11 @@ colab = [
     "unsloth",
     "trl",
 ]
+serve = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sse-starlette",
+]
 
 [tool.dagster]
 module_name = "data_pipeline.definitions"
