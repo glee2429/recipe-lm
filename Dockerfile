@@ -15,11 +15,12 @@ ENV PATH="/home/user/.local/bin:$PATH"
 
 WORKDIR /home/user/app
 
-# Install serving dependencies only (no training deps)
+# Install PyTorch with CUDA support
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-        torch --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
+
+# Install remaining serving dependencies
+RUN pip install --no-cache-dir \
         transformers \
         peft \
         accelerate \
