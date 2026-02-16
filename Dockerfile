@@ -1,12 +1,6 @@
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3-pip && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    rm -rf /var/lib/apt/lists/*
 
 # Non-root user required by HuggingFace Spaces
 RUN useradd -m -u 1000 user
@@ -15,11 +9,7 @@ ENV PATH="/home/user/.local/bin:$PATH"
 
 WORKDIR /home/user/app
 
-# Install PyTorch with CUDA support
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
-
-# Install remaining serving dependencies
+# Install serving dependencies (torch already in base image)
 RUN pip install --no-cache-dir \
         transformers \
         peft \
