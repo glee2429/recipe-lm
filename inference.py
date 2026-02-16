@@ -84,7 +84,7 @@ def load_model(model_name: str, adapter_path: str, no_adapter: bool = False):
     use_cuda = torch.cuda.is_available()
     use_mps = torch.backends.mps.is_available()
 
-    dtype = torch.bfloat16 if use_cuda else torch.float32
+    dtype = torch.bfloat16 if use_cuda else (torch.float16 if use_mps else torch.float32)
     if use_cuda:
         device_map = "auto"
     elif use_mps:
@@ -126,7 +126,7 @@ def generate_recipe(
     """Generate a recipe from a prompt and optionally post-process."""
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         outputs = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,

@@ -117,6 +117,8 @@ async def generate(req: GenerateRequest):
     async def event_stream():
         full_text = prompt
         for token in streamer:
+            if not token:
+                continue
             full_text += token
             yield {"data": json.dumps({"token": token})}
         cleaned = clean_recipe(full_text)
