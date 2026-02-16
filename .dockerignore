@@ -1,0 +1,11 @@
+data_pipeline/
+configs/
+tests/
+processed_data/
+dagster_storage/
+notebooks/
+.git/
+.tmp_dagster_home_*/
+__pycache__/
+*.egg-info/
+*.pyc
