@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir \
         fastapi \
         "uvicorn[standard]" \
         sse-starlette \
-        huggingface_hub
+        huggingface_hub \
+        httpx
 
 COPY --chown=user:user server.py .
 COPY --chown=user:user inference.py .
