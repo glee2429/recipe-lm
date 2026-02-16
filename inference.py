@@ -79,6 +79,83 @@ def clean_recipe(text: str) -> str:
     return "\n".join(deduped)
 
 
+def parse_ingredients(text: str) -> list[dict]:
+    """Extract structured ingredients from generated recipe text."""
+    lines = text.split("\n")
+
+    # Find the Ingredients section
+    in_ingredients = False
+    ingredient_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if re.match(r"^Ingredients:?\s*$", stripped, re.IGNORECASE):
+            in_ingredients = True
+            continue
+        if re.match(r"^Directions:?\s*$", stripped, re.IGNORECASE):
+            break
+        if in_ingredients and stripped.startswith("- "):
+            ingredient_lines.append(stripped[2:].strip())
+
+    # Units to recognize (single-letter units like g/l require trailing space or end)
+    units = (
+        r"cups?|tbsp|tsp|tablespoons?|teaspoons?|lb\.?|lbs\.?|pounds?|oz\.?|ounces?|"
+        r"kg|ml|liters?|cloves?|bunch(?:es)?|cans?|sticks?|pieces?|pcs?|"
+        r"pinch(?:es)?|dash(?:es)?|slices?|heads?|stalks?|sprigs?|"
+        r"large|medium|small|c\.|pt\.|qt\."
+    )
+
+    # Category keywords
+    produce = {"onion", "garlic", "tomato", "potato", "carrot", "celery", "pepper",
+               "lettuce", "spinach", "broccoli", "mushroom", "lemon", "lime", "ginger",
+               "cilantro", "parsley", "basil", "avocado", "corn", "bean sprouts",
+               "scallion", "green onion", "jalape", "zucchini", "squash", "cabbage",
+               "cucumber", "bell pepper", "chili", "banana", "apple", "berry", "mango"}
+    protein = {"chicken", "beef", "pork", "shrimp", "salmon", "fish", "turkey", "lamb",
+               "bacon", "sausage", "tofu", "ground", "steak", "thigh", "breast", "meat"}
+    dairy = {"butter", "milk", "cream", "cheese", "yogurt", "egg", "sour cream",
+             "mozzarella", "parmesan", "cheddar", "ricotta", "whipping cream"}
+    spices = {"salt", "pepper", "cumin", "paprika", "cinnamon", "oregano", "thyme",
+              "chili powder", "garlic powder", "onion powder", "cayenne", "turmeric",
+              "nutmeg", "bay leaf", "red pepper flakes", "curry", "coriander"}
+
+    pattern = re.compile(
+        rf"^([\d/\.\-\s]+(?:\([^)]+\))?)?\s*({units})?\s*\.?\s*(.+)$",
+        re.IGNORECASE,
+    )
+
+    ingredients = []
+    for line in ingredient_lines:
+        m = pattern.match(line)
+        if m:
+            amount = (m.group(1) or "").strip()
+            unit = (m.group(2) or "").strip()
+            name = (m.group(3) or line).strip().rstrip(",.")
+        else:
+            amount, unit, name = "", "", line.strip().rstrip(",.")
+
+        # Classify category
+        name_lower = name.lower()
+        if any(k in name_lower for k in spices):
+            category = "spices"
+        elif any(k in name_lower for k in dairy):
+            category = "dairy"
+        elif any(k in name_lower for k in protein):
+            category = "protein"
+        elif any(k in name_lower for k in produce):
+            category = "produce"
+        else:
+            category = "pantry"
+
+        ingredients.append({
+            "name": name,
+            "amount": amount,
+            "unit": unit,
+            "category": category,
+        })
+
+    return ingredients
+
+
 def load_model(model_name: str, adapter_path: str, no_adapter: bool = False):
     """Load the base model, optionally with a LoRA adapter."""
     use_cuda = torch.cuda.is_available()
