@@ -1,10 +1,82 @@
 # recipe-lm
 
-A [Dagster](https://dagster.io/) pipeline that fine-tunes [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) to generate recipes from prompts, using LoRA for parameter-efficient fine-tuning.
+An end-to-end recipe generation system: a [Dagster](https://dagster.io/) training pipeline that fine-tunes [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) with LoRA, a FastAPI streaming server, and a React web UI ([kitchen-genie](https://github.com/glee2429/kitchen-genie)).
 
 The trained adapter is published at [ClaireLee2429/gemma-2b-recipes-lora](https://huggingface.co/ClaireLee2429/gemma-2b-recipes-lora).
 
-## Pipeline
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Training Pipeline                       │
+│                                                              │
+│  HuggingFace Hub ──► Dagster Pipeline ──► LoRA Adapter       │
+│  (corbt/all-recipes)  (clean, tokenize,   (pushed to HF Hub) │
+│                        split, train)                         │
+│                                                              │
+│  Alternative: Google Colab + Unsloth (2x faster on T4 GPU)  │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Inference & Serving                     │
+│                                                              │
+│  inference.py ── CLI script for batch generation             │
+│  server.py ───── FastAPI + SSE streaming (POST /generate)    │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        Web Frontend                          │
+│                                                              │
+│  kitchen-genie ── React + Vite + Tailwind + shadcn/ui        │
+│                   Streams tokens from server.py in real time  │
+│                   github.com/glee2429/kitchen-genie          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Project Structure
+
+```
+recipe-lm/
+├── data_pipeline/          # Dagster pipeline
+│   ├── assets/
+│   │   ├── download.py     # Fetch dataset from HuggingFace Hub
+│   │   ├── clean.py        # Strip whitespace, deduplicate
+│   │   ├── tokenize.py     # Tokenize with AutoTokenizer
+│   │   ├── split.py        # Train/val split
+│   │   └── train.py        # LoRA fine-tuning with HF Trainer
+│   ├── resources.py        # HuggingFaceConfig resource
+│   ├── io_managers.py      # Arrow dataset I/O manager
+│   └── definitions.py      # Dagster definitions
+├── notebooks/
+│   └── train_unsloth.ipynb # Colab notebook (Unsloth + T4 GPU)
+├── inference.py            # CLI inference with post-processing
+├── server.py               # FastAPI streaming API server
+├── configs/
+│   └── default.yaml        # Default pipeline configuration
+├── tests/
+│   └── test_assets.py      # Pipeline asset tests
+└── pyproject.toml          # Dependencies (dev, colab, serve)
+```
+
+## Quick Start
+
+```bash
+# 1. Install dependencies
+pip install -e ".[serve]"
+huggingface-cli login
+
+# 2. Start the API server (uses pre-trained adapter from HuggingFace Hub)
+python server.py --adapter ClaireLee2429/gemma-2b-recipes-lora
+
+# 3. Start the frontend (in a separate terminal)
+cd ../kitchen-genie && npm install && npm run dev
+
+# 4. Open http://localhost:8080 and generate recipes!
+```
+
+## Training Pipeline
 
 ```
 raw_dataset → cleaned_dataset → tokenized_dataset → train_val_splits → trained_model
@@ -82,8 +154,8 @@ The training step automatically detects the available hardware:
 | Device | Behavior |
 |---|---|
 | **CUDA** | QLoRA with 4-bit quantization (bitsandbytes), bf16 training |
-| **MPS (Apple Silicon)** | LoRA without quantization, fp32 training |
-| **CPU** | LoRA without quantization, fp32 training |
+| **MPS (Apple Silicon)** | LoRA without quantization, fp16 inference / fp32 training |
+| **CPU** | LoRA without quantization, fp32 training / inference |
 
 ## Outputs
 
@@ -358,7 +430,7 @@ data: {"done": true, "full_text": "Recipe for pasta carbonara:\nIngredients:\n..
 
 For faster training on a free GPU, use the provided Colab notebook which uses [Unsloth](https://unsloth.ai/) for ~2x faster training with ~70% less VRAM:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ClaireLee2429/recipe-lm/blob/main/notebooks/train_unsloth.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/glee2429/recipe-lm/blob/main/notebooks/train_unsloth.ipynb)
 
 1. Open the notebook in Google Colab
 2. Set runtime to **T4 GPU** (Runtime > Change runtime type)
