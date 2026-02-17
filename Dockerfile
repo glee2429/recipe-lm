@@ -2,9 +2,9 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# git is required by HuggingFace Spaces build hooks
+# git for HF Spaces build hooks, musl for pre-built llama-cpp-python wheel
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git musl && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user required by HuggingFace Spaces
