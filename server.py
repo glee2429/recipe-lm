@@ -2,7 +2,7 @@
 FastAPI server for recipe generation with streaming output (GGUF).
 
 Usage:
-    pip install llama-cpp-python fastapi "uvicorn[standard]" sse-starlette httpx
+    pip install llama-cpp-python fastapi "uvicorn[standard]" sse-starlette httpx gradio
     python server.py
     python server.py --port 8080
 """
@@ -15,6 +15,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 
+import gradio as gr
 import httpx
 import uvicorn
 from fastapi import FastAPI
@@ -26,6 +27,7 @@ from inference import (
     GGUF_FILE,
     GGUF_REPO,
     clean_recipe,
+    generate_recipe,
     load_model,
     parse_ingredients,
     stream_recipe,
@@ -208,6 +210,69 @@ async def search_products(req: ProductSearchRequest):
         })
 
     return {"products": products}
+
+
+# ---------------------------------------------------------------------------
+# Gradio demo UI (mounted at / on HuggingFace Spaces)
+# ---------------------------------------------------------------------------
+
+EXAMPLES = [
+    "Recipe for chocolate chip cookies:",
+    "Recipe for pasta carbonara:",
+    "Recipe for chicken stir fry:",
+    "Recipe for banana bread:",
+    "Recipe for tomato soup:",
+]
+
+
+def _gradio_generate(dish: str, max_tokens: int, temperature: float):
+    """Streaming generator for the Gradio interface."""
+    prompt = f"Recipe for {dish}:\n" if not dish.lower().startswith("recipe") else dish
+    if not prompt.endswith("\n"):
+        prompt += "\n"
+
+    full_text = prompt
+    for token in stream_recipe(_llm, prompt, max_tokens=max_tokens, temperature=temperature):
+        full_text += token
+        yield clean_recipe(full_text)
+    yield clean_recipe(full_text)
+
+
+with gr.Blocks(title="Kitchen Genie", theme=gr.themes.Soft()) as demo:
+    gr.Markdown(
+        "# Kitchen Genie\n"
+        "Generate recipes with a fine-tuned Gemma-2B model (GGUF Q4_K_M). "
+        "Type a dish name or pick an example below."
+    )
+
+    with gr.Row():
+        with gr.Column(scale=1):
+            dish_input = gr.Textbox(
+                label="What do you want to cook?",
+                placeholder="e.g. chocolate chip cookies",
+                lines=1,
+            )
+            with gr.Row():
+                max_tok = gr.Slider(64, 512, value=256, step=32, label="Max tokens")
+                temp = gr.Slider(0.1, 1.5, value=0.7, step=0.1, label="Temperature")
+            generate_btn = gr.Button("Generate Recipe", variant="primary")
+            gr.Examples(examples=EXAMPLES, inputs=dish_input)
+
+        with gr.Column(scale=2):
+            output = gr.Textbox(label="Generated Recipe", lines=20, show_copy_button=True)
+
+    generate_btn.click(
+        fn=_gradio_generate,
+        inputs=[dish_input, max_tok, temp],
+        outputs=output,
+    )
+    dish_input.submit(
+        fn=_gradio_generate,
+        inputs=[dish_input, max_tok, temp],
+        outputs=output,
+    )
+
+app = gr.mount_gradio_app(app, demo, path="/")
 
 
 if __name__ == "__main__":

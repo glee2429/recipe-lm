@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir \
         "uvicorn[standard]" \
         sse-starlette \
         huggingface_hub \
-        httpx
+        httpx \
+        gradio
 
 COPY --chown=user:user server.py .
 COPY --chown=user:user inference.py .
