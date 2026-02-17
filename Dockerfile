@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -7,10 +7,16 @@ RUN useradd -m -u 1000 user
 USER user
 ENV PATH="/home/user/.local/bin:$PATH"
 
+# Optimise CPU inference for 8 vCPU hardware
+ENV OMP_NUM_THREADS=8
+ENV MKL_NUM_THREADS=8
+
 WORKDIR /home/user/app
 
-# Install serving dependencies (torch already in base image)
+# Install CPU-only PyTorch + serving dependencies
 RUN pip install --no-cache-dir \
+        torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir \
         transformers \
         peft \
         accelerate \

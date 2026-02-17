@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import os
 import re
 
 import torch
@@ -168,6 +169,10 @@ def load_model(model_name: str, adapter_path: str, no_adapter: bool = False):
         device_map = {"": "mps"}
     else:
         device_map = {"": "cpu"}
+        # Use all available CPU cores for inference
+        num_threads = int(os.environ.get("OMP_NUM_THREADS", 8))
+        torch.set_num_threads(num_threads)
+        torch.set_num_interop_threads(num_threads)
 
     device_name = "CUDA" if use_cuda else ("MPS" if use_mps else "CPU")
     print(f"Loading base model ({device_name})...")
