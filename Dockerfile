@@ -1,7 +1,7 @@
 FROM python:3.11-alpine
 
-# git for HF Spaces build hooks
-RUN apk add --no-cache git
+# git for HF Spaces, libstdc++ for llama-cpp-python
+RUN apk add --no-cache git libstdc++
 
 # Non-root user required by HuggingFace Spaces
 RUN adduser -D -u 1000 user
