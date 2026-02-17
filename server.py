@@ -36,6 +36,14 @@ from inference import (
 _llm = None
 
 
+def _format_prompt(text: str) -> str:
+    """Normalize user input to the training format: 'Recipe for <dish>:\n'."""
+    text = text.strip().rstrip(":\n")
+    if not text.lower().startswith("recipe"):
+        text = f"Recipe for {text}"
+    return text + ":\n"
+
+
 class GenerateRequest(BaseModel):
     prompt: str
     max_tokens: int = Field(default=256, ge=1, le=1024)
@@ -103,7 +111,7 @@ def health():
 
 @app.post("/generate")
 async def generate(req: GenerateRequest):
-    prompt = req.prompt if req.prompt.endswith("\n") else req.prompt + "\n"
+    prompt = _format_prompt(req.prompt)
 
     async def event_stream():
         full_text = prompt
@@ -217,19 +225,17 @@ async def search_products(req: ProductSearchRequest):
 # ---------------------------------------------------------------------------
 
 EXAMPLES = [
-    "Recipe for chocolate chip cookies:",
-    "Recipe for pasta carbonara:",
-    "Recipe for chicken stir fry:",
-    "Recipe for banana bread:",
-    "Recipe for tomato soup:",
+    "chocolate chip cookies",
+    "pasta carbonara",
+    "chicken stir fry",
+    "banana bread",
+    "tomato soup",
 ]
 
 
 def _gradio_generate(dish: str, max_tokens: int, temperature: float):
     """Streaming generator for the Gradio interface."""
-    prompt = f"Recipe for {dish}:\n" if not dish.lower().startswith("recipe") else dish
-    if not prompt.endswith("\n"):
-        prompt += "\n"
+    prompt = _format_prompt(dish)
 
     full_text = prompt
     for token in stream_recipe(_llm, prompt, max_tokens=max_tokens, temperature=temperature):
