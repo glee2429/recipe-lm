@@ -35,6 +35,44 @@ def test_cleaned_dataset_removes_empty_and_duplicates():
     assert set(texts) == {"hello", "world", "foo"}
 
 
+def test_cleaned_dataset_removes_trailing_commentary():
+    raw = Dataset.from_dict(
+        {
+            "text": [
+                "Recipe for cookies:\n- 1 cup flour\nDirections:\n- Mix.\nSubmitted by: Jane",
+                "Recipe for soup:\n- 1 onion\nDirections:\n- Boil.\nSource: allrecipes.com",
+                "Recipe for cake:\n- 2 eggs\nDirections:\n- Bake.\nNotes: Use room temp eggs.",
+                "Recipe for bread:\n- 3 cups flour\nDirections:\n- Knead.\n- I love this recipe!",
+                "Recipe for pie:\n- 2 cups flour\nDirections:\n- Roll out.\n- The recipe was given to me by my friend.",
+                "Recipe for stew:\n- 1 lb beef\nDirections:\n- Simmer.\n- Thanks, Nancy!\n- Another favorite recipe.",
+                "Recipe for salad:\n- 1 head lettuce\nDirections:\n- Toss.\n- For more delicious recipes, check out our Pinterest boards.",
+                "Recipe for tacos:\n- 1 lb ground beef\nDirections:\n- Brown meat.\n- If you love this recipe, please give it five stars!",
+                "Recipe for pasta:\n- 1 lb spaghetti\nDirections:\n- Boil.\n- Photo by Sara's Kitchen",
+                "Recipe for rice:\n- 2 cups rice\nDirections:\n- Cook.\nThis post contains affiliate links.",
+            ]
+        }
+    )
+    config = _make_config()
+    context = build_asset_context()
+    result = cleaned_dataset(context, config, raw)
+
+    for text in result["text"]:
+        assert "Submitted by" not in text
+        assert "Source:" not in text
+        assert "Notes:" not in text
+        assert "I love this" not in text
+        assert "The recipe was given" not in text
+        assert "Thanks" not in text
+        assert "Another favorite" not in text
+        assert "For more" not in text
+        assert "Pinterest" not in text
+        assert "five stars" not in text
+        assert "Photo by" not in text
+        assert "affiliate" not in text
+        # The actual recipe content should be preserved
+        assert "Directions:" in text
+
+
 def test_cleaned_dataset_skips_when_column_missing():
     raw = Dataset.from_dict({"other_col": ["a", "b"]})
     config = _make_config(text_column="text")

@@ -42,16 +42,42 @@ def clean_recipe(text: str) -> str:
         # Stop at trailing commentary sections
         if re.match(r"^-?\s*Notes?:", stripped, re.IGNORECASE):
             break
-        if re.match(r"^-?\s*Recipe (from|by|submitted)", stripped, re.IGNORECASE):
+        if re.match(r"^-?\s*Tips?:", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Recipe\s+(from|by|submitted|courtesy)", stripped, re.IGNORECASE):
             break
         if re.match(r"^-?\s*Source:", stripped, re.IGNORECASE):
             break
+        if re.match(r"^-?\s*Bon\s+App", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Submitted\s+by\b", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Photo\s+(by|from|credit)", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Adapted\s+from\b", stripped, re.IGNORECASE):
+            break
         if re.match(
-            r"^-\s+(I |My |This is |You can |That |He |She |We |It |Visit )",
-            stripped,
+            r"^-?\s*(I\s|My\s|This is\s|You can\s|That\s|He\s|She\s|We\s|It\s|Visit\s)",
+            stripped, re.IGNORECASE,
         ):
             break
-        if re.match(r"^-\s+Bon App", stripped):
+        if re.match(r"^-?\s*Thanks", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Thank\s+you", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Another\s+favorite", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*The\s+recipe\s+was\b", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*(For\s+more|Check\s+out|Follow\s+us|And\s+follow)", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*If\s+you\s+(love|like|enjoy|try)", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*Please\s+(give|rate|share|leave)", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*(Pinterest|Twitter|Instagram|Facebook|YouTube)\b", stripped, re.IGNORECASE):
+            break
+        if re.match(r"^-?\s*This\s+(post|article|page)\b", stripped, re.IGNORECASE):
             break
 
         cleaned.append(line)
