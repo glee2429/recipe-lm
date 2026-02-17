@@ -1,21 +1,21 @@
 """
-Standalone inference script for the fine-tuned recipe generation model.
+Standalone inference script for the fine-tuned recipe generation model (GGUF).
 
 Usage:
     python inference.py --prompt "Recipe for chocolate chip cookies:"
     python inference.py --prompt "Recipe for pasta carbonara:" --save output.txt
     python inference.py --prompt "Recipe for banana bread:" --raw
-    python inference.py --adapter ClaireLee2429/gemma-2b-recipes-lora --prompt "Recipe for soup:"
-    python inference.py --no-adapter --prompt "Recipe for Thai green curry:"
 """
 
 import argparse
 import os
 import re
 
-import torch
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from huggingface_hub import hf_hub_download
+from llama_cpp import Llama
+
+GGUF_REPO = os.environ.get("GGUF_REPO", "ClaireLee2429/gemma-2b-recipes-gguf")
+GGUF_FILE = os.environ.get("GGUF_FILE", "model.q4_k_m.gguf")
 
 
 def clean_recipe(text: str) -> str:
@@ -157,69 +157,62 @@ def parse_ingredients(text: str) -> list[dict]:
     return ingredients
 
 
-def load_model(model_name: str, adapter_path: str, no_adapter: bool = False):
-    """Load the base model, optionally with a LoRA adapter."""
-    use_cuda = torch.cuda.is_available()
-    use_mps = torch.backends.mps.is_available()
-
-    dtype = torch.bfloat16 if use_cuda else (torch.float16 if use_mps else torch.float32)
-    if use_cuda:
-        device_map = "auto"
-    elif use_mps:
-        device_map = {"": "mps"}
-    else:
-        device_map = {"": "cpu"}
-        # Use all available CPU cores for inference
-        num_threads = int(os.environ.get("OMP_NUM_THREADS", 8))
-        torch.set_num_threads(num_threads)
-        torch.set_num_interop_threads(num_threads)
-
-    device_name = "CUDA" if use_cuda else ("MPS" if use_mps else "CPU")
-    print(f"Loading base model ({device_name})...")
-
-    base_model = AutoModelForCausalLM.from_pretrained(
-        model_name, torch_dtype=dtype, device_map=device_map
+def load_model(
+    n_threads: int = 8,
+    n_ctx: int = 2048,
+    model_path: str | None = None,
+) -> Llama:
+    """Download GGUF model from HuggingFace Hub and load with llama-cpp-python."""
+    if model_path is None:
+        print(f"Downloading {GGUF_REPO}/{GGUF_FILE}...")
+        model_path = hf_hub_download(repo_id=GGUF_REPO, filename=GGUF_FILE)
+    print(f"Loading GGUF model from {model_path}...")
+    llm = Llama(
+        model_path=model_path,
+        n_threads=n_threads,
+        n_ctx=n_ctx,
+        verbose=False,
     )
+    print(f"Model loaded ({n_threads} threads, {n_ctx} ctx).")
+    return llm
 
-    if no_adapter:
-        print("Running base model without adapter")
-        model = base_model
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-    else:
-        print(f"Loading LoRA adapter from {adapter_path}...")
-        model = PeftModel.from_pretrained(base_model, adapter_path)
-        tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
-    model.eval()
-
-    device = "cuda" if use_cuda else ("mps" if use_mps else "cpu")
-    return model, tokenizer, device
+def stream_recipe(
+    llm: Llama,
+    prompt: str,
+    max_tokens: int = 256,
+    temperature: float = 0.7,
+):
+    """Yield token strings as they are generated."""
+    for chunk in llm.create_completion(
+        prompt,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=0.9,
+        repeat_penalty=1.2,
+        stream=True,
+    ):
+        token_text = chunk["choices"][0]["text"]
+        if token_text:
+            yield token_text
 
 
 def generate_recipe(
-    model,
-    tokenizer,
-    device: str,
+    llm: Llama,
     prompt: str,
-    max_new_tokens: int = 256,
+    max_tokens: int = 256,
     temperature: float = 0.7,
     raw: bool = False,
 ) -> str:
-    """Generate a recipe from a prompt and optionally post-process."""
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
-    with torch.inference_mode():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=0.9,
-            do_sample=True,
-            repetition_penalty=1.2,
-        )
-
-    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
+    """Generate a complete recipe (non-streaming, for CLI use)."""
+    output = llm.create_completion(
+        prompt,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=0.9,
+        repeat_penalty=1.2,
+    )
+    text = prompt + output["choices"][0]["text"]
     if raw:
         return text
     return clean_recipe(text)
@@ -234,16 +227,10 @@ def main():
         help="Prompt for recipe generation",
     )
     parser.add_argument(
-        "--adapter",
+        "--model-path",
         type=str,
-        default="./processed_data/lora_adapter",
-        help="Path to LoRA adapter (local or HuggingFace Hub ID)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="google/gemma-2b",
-        help="Base model name",
+        default=None,
+        help="Path to a local GGUF file (skips HF Hub download)",
     )
     parser.add_argument(
         "--max-tokens",
@@ -256,11 +243,6 @@ def main():
         type=float,
         default=0.7,
         help="Sampling temperature",
-    )
-    parser.add_argument(
-        "--no-adapter",
-        action="store_true",
-        help="Run the base model without a LoRA adapter",
     )
     parser.add_argument(
         "--raw",
@@ -279,17 +261,15 @@ def main():
     # Ensure prompt ends with newline
     prompt = args.prompt if args.prompt.endswith("\n") else args.prompt + "\n"
 
-    model, tokenizer, device = load_model(args.model, args.adapter, args.no_adapter)
+    llm = load_model(model_path=args.model_path)
 
     print(f"\nPrompt: {prompt.strip()}")
     print("-" * 40)
 
     result = generate_recipe(
-        model,
-        tokenizer,
-        device,
+        llm,
         prompt,
-        max_new_tokens=args.max_tokens,
+        max_tokens=args.max_tokens,
         temperature=args.temperature,
         raw=args.raw,
     )

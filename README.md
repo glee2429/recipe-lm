@@ -5,6 +5,7 @@ colorFrom: yellow
 colorTo: red
 sdk: docker
 pinned: false
+startup_duration_timeout: 300
 ---
 
 # recipe-lm

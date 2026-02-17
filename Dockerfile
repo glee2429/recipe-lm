@@ -1,9 +1,10 @@
-FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Build tools for llama-cpp-python compilation + git for HF Spaces
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends build-essential cmake git && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user required by HuggingFace Spaces
@@ -17,11 +18,9 @@ ENV MKL_NUM_THREADS=8
 
 WORKDIR /home/user/app
 
-# Install serving dependencies (torch already in base image)
+# Install Python dependencies (no torch needed!)
 RUN pip install --no-cache-dir \
-        transformers \
-        peft \
-        accelerate \
+        llama-cpp-python \
         fastapi \
         "uvicorn[standard]" \
         sse-starlette \
@@ -33,6 +32,4 @@ COPY --chown=user:user inference.py .
 
 EXPOSE 7860
 
-CMD ["python", "server.py", \
-     "--adapter", "ClaireLee2429/gemma-2b-recipes-lora", \
-     "--port", "7860"]
+CMD ["python", "server.py", "--port", "7860"]

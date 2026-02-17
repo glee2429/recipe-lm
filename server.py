@@ -1,37 +1,37 @@
 """
-FastAPI server for recipe generation with streaming output.
+FastAPI server for recipe generation with streaming output (GGUF).
 
 Usage:
-    pip install -e ".[serve]"
+    pip install llama-cpp-python fastapi "uvicorn[standard]" sse-starlette httpx
     python server.py
-    python server.py --adapter ClaireLee2429/gemma-2b-recipes-lora
     python server.py --port 8080
 """
 
 import argparse
+import asyncio
 import base64
 import json
 import os
-import threading
 import time
 from contextlib import asynccontextmanager
 
 import httpx
-import torch
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-from transformers import TextIteratorStreamer
 
-from inference import clean_recipe, load_model, parse_ingredients
+from inference import (
+    GGUF_FILE,
+    GGUF_REPO,
+    clean_recipe,
+    load_model,
+    parse_ingredients,
+    stream_recipe,
+)
 
-# Global state for the loaded model
-_model = None
-_tokenizer = None
-_device = None
-_model_name = None
+_llm = None
 
 
 class GenerateRequest(BaseModel):
@@ -56,25 +56,14 @@ _kroger_token_expiry: float = 0
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Recipe generation API server")
-    parser.add_argument(
-        "--adapter",
-        type=str,
-        default="./processed_data/lora_adapter",
-        help="Path to LoRA adapter (local or HuggingFace Hub ID)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="google/gemma-2b",
-        help="Base model name",
-    )
-    parser.add_argument(
-        "--no-adapter",
-        action="store_true",
-        help="Run the base model without a LoRA adapter",
-    )
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default=None,
+        help="Path to a local GGUF file (skips HF Hub download)",
+    )
     return parser.parse_args()
 
 
@@ -83,10 +72,10 @@ args = _parse_args()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _model, _tokenizer, _device, _model_name
-    _model_name = args.model
-    _model, _tokenizer, _device = load_model(args.model, args.adapter, args.no_adapter)
-    print(f"Server ready — model: {args.model}, device: {_device}")
+    global _llm
+    n_threads = int(os.environ.get("OMP_NUM_THREADS", "8"))
+    _llm = load_model(n_threads=n_threads, n_ctx=2048, model_path=args.model_path)
+    print(f"Server ready — GGUF model loaded, {n_threads} threads")
     yield
 
 
@@ -105,40 +94,26 @@ app.add_middleware(
 def health():
     return {
         "status": "ok",
-        "model": _model_name,
-        "device": _device,
+        "model": f"{GGUF_REPO}/{GGUF_FILE}",
+        "device": "cpu (GGUF Q4_K_M)",
     }
 
 
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     prompt = req.prompt if req.prompt.endswith("\n") else req.prompt + "\n"
-    inputs = _tokenizer(prompt, return_tensors="pt").to(_device)
-
-    streamer = TextIteratorStreamer(
-        _tokenizer, skip_prompt=True, skip_special_tokens=True
-    )
-
-    generate_kwargs = dict(
-        **inputs,
-        max_new_tokens=req.max_tokens,
-        temperature=req.temperature,
-        top_p=0.9,
-        do_sample=True,
-        repetition_penalty=1.2,
-        streamer=streamer,
-    )
-
-    thread = threading.Thread(target=_model.generate, kwargs=generate_kwargs)
-    thread.start()
 
     async def event_stream():
         full_text = prompt
-        for token in streamer:
-            if not token:
-                continue
+        for token in stream_recipe(
+            _llm,
+            prompt,
+            max_tokens=req.max_tokens,
+            temperature=req.temperature,
+        ):
             full_text += token
             yield {"data": json.dumps({"token": token})}
+            await asyncio.sleep(0)  # yield control to event loop
         cleaned = clean_recipe(full_text)
         yield {"data": json.dumps({"done": True, "full_text": cleaned})}
 
