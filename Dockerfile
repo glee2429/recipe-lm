@@ -2,9 +2,9 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# git is required by HuggingFace Spaces build hooks
+# Build tools for llama-cpp-python compilation + git for HF Spaces
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends build-essential cmake git && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user required by HuggingFace Spaces
@@ -18,10 +18,8 @@ ENV MKL_NUM_THREADS=8
 
 WORKDIR /home/user/app
 
-# Install pre-built llama-cpp-python CPU wheel (no compilation needed)
-RUN pip install --no-cache-dir \
-        llama-cpp-python \
-        --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+# Install llama-cpp-python (compiles from source, ~10 min)
+RUN pip install --no-cache-dir llama-cpp-python
 RUN pip install --no-cache-dir \
         fastapi \
         "uvicorn[standard]" \
