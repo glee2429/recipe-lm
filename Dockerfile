@@ -1,14 +1,10 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# git for HF Spaces build hooks, musl for pre-built llama-cpp-python wheel
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git musl && \
-    rm -rf /var/lib/apt/lists/*
+# git for HF Spaces build hooks
+RUN apk add --no-cache git
 
 # Non-root user required by HuggingFace Spaces
-RUN useradd -m -u 1000 user
+RUN adduser -D -u 1000 user
 USER user
 ENV PATH="/home/user/.local/bin:$PATH"
 
@@ -18,7 +14,7 @@ ENV MKL_NUM_THREADS=8
 
 WORKDIR /home/user/app
 
-# Install pre-built llama-cpp-python wheel (no compilation)
+# Install pre-built llama-cpp-python wheel (musl/Alpine compatible)
 RUN pip install --no-cache-dir \
         https://huggingface.co/ClaireLee2429/gemma-2b-recipes-gguf/resolve/main/llama_cpp_python-0.3.2-cp311-cp311-linux_x86_64.whl
 RUN pip install --no-cache-dir \
