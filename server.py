@@ -238,7 +238,7 @@ def _gradio_generate(dish: str, max_tokens: int, temperature: float):
     yield clean_recipe(full_text)
 
 
-with gr.Blocks(title="Kitchen Genie", theme=gr.themes.Soft()) as demo:
+with gr.Blocks(title="Kitchen Genie") as demo:
     gr.Markdown(
         "# Kitchen Genie\n"
         "Generate recipes with a fine-tuned Gemma-2B model (GGUF Q4_K_M). "
@@ -259,7 +259,7 @@ with gr.Blocks(title="Kitchen Genie", theme=gr.themes.Soft()) as demo:
             gr.Examples(examples=EXAMPLES, inputs=dish_input)
 
         with gr.Column(scale=2):
-            output = gr.Textbox(label="Generated Recipe", lines=20, show_copy_button=True)
+            output = gr.Textbox(label="Generated Recipe", lines=20)
 
     generate_btn.click(
         fn=_gradio_generate,
