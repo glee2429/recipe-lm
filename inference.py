@@ -97,10 +97,10 @@ def parse_ingredients(text: str) -> list[dict]:
         if in_ingredients and stripped.startswith("- "):
             ingredient_lines.append(stripped[2:].strip())
 
-    # Units to recognize (single-letter units like g/l require trailing space or end)
+    # Units to recognize (g/l use word boundary to avoid matching inside words)
     units = (
         r"cups?|tbsp|tsp|tablespoons?|teaspoons?|lb\.?|lbs\.?|pounds?|oz\.?|ounces?|"
-        r"kg|ml|liters?|cloves?|bunch(?:es)?|cans?|sticks?|pieces?|pcs?|"
+        r"kg|g\b|ml|l\b|liters?|cloves?|bunch(?:es)?|cans?|sticks?|pieces?|pcs?|"
         r"pinch(?:es)?|dash(?:es)?|slices?|heads?|stalks?|sprigs?|"
         r"large|medium|small|c\.|pt\.|qt\."
     )
