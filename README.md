@@ -1,13 +1,3 @@
----
-title: Recipe LM API
-emoji: 🍳
-colorFrom: yellow
-colorTo: red
-sdk: docker
-pinned: false
-startup_duration_timeout: 5m
----
-
 # recipe-lm
 
 An end-to-end recipe generation system: a [Dagster](https://dagster.io/) training pipeline that fine-tunes [Gemma-2B](https://huggingface.co/google/gemma-2b) on [recipe data](https://huggingface.co/datasets/corbt/all-recipes) with LoRA, a FastAPI streaming server, and a React web UI ([kitchen-genie](https://github.com/glee2429/kitchen-genie)).
