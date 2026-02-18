@@ -33,6 +33,16 @@ The trained adapter is published at [ClaireLee2429/gemma-2b-recipes-lora](https:
 │                   Streams tokens from server.py in real time  │
 │                   github.com/glee2429/kitchen-genie          │
 └─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Voice Interface                        │
+│                                                              │
+│  recipe-voice-agent ── Call a phone number, get a recipe     │
+│                        Claude Haiku routes, Gemma-2B cooks   │
+│                        Sends recipe via SMS after the call   │
+│                        github.com/glee2429/recipe-voice-agent│
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -109,3 +119,8 @@ Run `python inference.py --help` or `python server.py --help` for all options.
 ```bash
 pytest tests/
 ```
+
+## Related Projects
+
+- [kitchen-genie](https://github.com/glee2429/kitchen-genie) - React web frontend for recipe generation
+- [recipe-voice-agent](https://github.com/glee2429/recipe-voice-agent) - Containerized voice interface (phone call + SMS) powered by OpenClaw and ClawdTalk
